@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  celebrity
+}
+
+enum OrderStatus {
+  waiting
+  accepted
+  rejected
+  done
+}
+
+enum TransactionStatus {
+  success
+  failed
+  error
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String    @db.VarChar(50)
+  email        String    @db.VarChar(50)
+  avatar       String?   @db.VarChar(200)
+  password     String
+  refreshToken String    @default(cuid())
+  role         UserRole  @default(user)
+  createdAt    DateTime? @default(now())
+
+  profileContents       ProfileContent[]
+  orders                Order[]          @relation("UserOrders")
+  celebrityOrders       Order[]          @relation("CelebrityOrders")
+  comments              Comment[]        @relation("UserComments")
+  celebrityComment      Comment[]        @relation("CelebrityComments")
+  cards                 Card[]
+  userTransactions      Transaction[]    @relation("UserTransactions")
+  celebrityTransactions Transaction[]    @relation("CelebrityTransactions")
+}
+
+model ProfileContent {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  video     String    @db.VarChar(250)
+  title     String    @db.VarChar(250)
+  createdAt DateTime? @default(now())
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation("UserOrders", fields: [userId], references: [id])
+  celebrityId String
+  celebrity   User        @relation("CelebrityOrders", fields: [celebrityId], references: [id])
+  text        String      @db.VarChar(300)
+  video       String      @db.VarChar(250)
+  status      OrderStatus @default(waiting)
+  createdAt   DateTime?   @default(now())
+
+  transaction Transaction?
+}
+
+model Card {
+  id         String    @id @default(cuid())
+  owner      String
+  cardNumber String    @db.VarChar(16)
+  balance    Int
+  expireDate String    @db.VarChar(5)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  createdAt  DateTime? @default(now())
+}
+
+model Comment {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserComments", fields: [userId], references: [id])
+  celebrityId String
+  celebrity   User      @relation("CelebrityComments", fields: [celebrityId], references: [id])
+  text        String    @db.VarChar(150)
+  stars       Int       @default(5)
+  createdAt   DateTime? @default(now())
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  orderId     String?           @unique
+  order       Order?            @relation(fields: [orderId], references: [id])
+  userId      String
+  user        User              @relation("UserTransactions", fields: [userId], references: [id])
+  celebrityId String
+  celebrity   User              @relation("CelebrityTransactions", fields: [celebrityId], references: [id])
+  amount      Decimal
+  status      TransactionStatus
+  createdAt   DateTime?         @default(now())
+}
