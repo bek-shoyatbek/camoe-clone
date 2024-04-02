@@ -11,6 +11,7 @@ import { MailService } from 'src/mail/mail.service';
 import { AuthService } from 'src/auth/auth.service';
 import { FsService } from 'src/fs/fs.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { GoogleAuthService } from 'src/auth/google-auth/google-auth.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
     FsService,
     AuthGuard,
     JwtService,
+    GoogleAuthService,
   ],
 })
 export class UsersModule {}

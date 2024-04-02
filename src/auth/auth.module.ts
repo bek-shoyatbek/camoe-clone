@@ -11,7 +11,7 @@ import { MailService } from 'src/mail/mail.service';
 import { FsService } from 'src/fs/fs.service';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from 'src/users/users.module';
-
+import { GoogleAuthService } from './google-auth/google-auth.service';
 
 @Module({
   imports: [
@@ -32,6 +32,7 @@ import { UsersModule } from 'src/users/users.module';
     MailService,
     FsService,
     JwtStrategy,
+    GoogleAuthService,
   ],
   controllers: [AuthController],
   exports: [PassportModule, JwtStrategy],

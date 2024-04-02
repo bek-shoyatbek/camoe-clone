@@ -30,7 +30,8 @@ model User {
   name         String    @db.VarChar(50)
   email        String    @db.VarChar(50)
   avatar       String?   @db.VarChar(200)
-  password     String
+  password     String?
+  googleId     String?
   refreshToken String    @default(cuid())
   role         UserRole  @default(user)
   createdAt    DateTime? @default(now())
@@ -48,7 +49,7 @@ model User {
 model ProfileContent {
   id        String    @id @default(cuid())
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   video     String    @db.VarChar(250)
   title     String    @db.VarChar(250)
   createdAt DateTime? @default(now())
@@ -57,9 +58,9 @@ model ProfileContent {
 model Order {
   id          String      @id @default(cuid())
   userId      String
-  user        User        @relation("UserOrders", fields: [userId], references: [id])
+  user        User        @relation("UserOrders", fields: [userId], references: [id], onDelete: NoAction)
   celebrityId String
-  celebrity   User        @relation("CelebrityOrders", fields: [celebrityId], references: [id])
+  celebrity   User        @relation("CelebrityOrders", fields: [celebrityId], references: [id], onDelete: NoAction)
   text        String      @db.VarChar(300)
   video       String      @db.VarChar(250)
   status      OrderStatus @default(waiting)
@@ -75,14 +76,14 @@ model Card {
   balance    Int
   expireDate String    @db.VarChar(5)
   userId     String
-  user       User      @relation(fields: [userId], references: [id])
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime? @default(now())
 }
 
 model Comment {
   id          String    @id @default(cuid())
   userId      String
-  user        User      @relation("UserComments", fields: [userId], references: [id])
+  user        User      @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
   celebrityId String
   celebrity   User      @relation("CelebrityComments", fields: [celebrityId], references: [id])
   text        String    @db.VarChar(150)
@@ -93,11 +94,11 @@ model Comment {
 model Transaction {
   id          String            @id @default(cuid())
   orderId     String?           @unique
-  order       Order?            @relation(fields: [orderId], references: [id])
+  order       Order?            @relation(fields: [orderId], references: [id], onDelete: NoAction)
   userId      String
-  user        User              @relation("UserTransactions", fields: [userId], references: [id])
+  user        User              @relation("UserTransactions", fields: [userId], references: [id], onDelete: NoAction)
   celebrityId String
-  celebrity   User              @relation("CelebrityTransactions", fields: [celebrityId], references: [id])
+  celebrity   User              @relation("CelebrityTransactions", fields: [celebrityId], references: [id], onDelete: NoAction)
   amount      Decimal
   status      TransactionStatus
   createdAt   DateTime?         @default(now())

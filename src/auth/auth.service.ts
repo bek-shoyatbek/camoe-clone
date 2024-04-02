@@ -1,11 +1,5 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { Cache } from 'cache-manager';
 import { GeneratorsService } from 'src/generators/generators.service';
@@ -16,7 +10,8 @@ import { PrismaService } from 'src/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
-import { Observable } from 'rxjs';
+import { GoogleAuthService } from './google-auth/google-auth.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -27,9 +22,10 @@ export class AuthService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private generator: GeneratorsService,
     private mailService: MailService,
+    private googleAuthService: GoogleAuthService,
   ) {}
 
-  async signUp(userData: Prisma.UserCreateInput): Promise<string> {
+  async signUpWithEmail(userData: Prisma.UserCreateInput): Promise<string> {
     const sessionId = this.generator.getUUID();
     const confirmationCode = this.generator.getNumber();
 
@@ -88,40 +84,67 @@ export class AuthService {
   ): Promise<User> {
     const cachedUser: CacheUser = await this.cacheManager.get(sessionId);
     if (!cachedUser || cachedUser?.confirmationCode !== +confirmationCode) {
-      throw new HttpException(
-        'Invalid code or sessionId',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new BadRequestException('Invalid code or sessionId');
     }
 
-    const user = await this.prisma.user.create({ data: cachedUser.userData });
+    const user = await this.userService.create(cachedUser.userData);
 
     return user;
   }
 
+  async signInWithGoogle(signInWithGoogleDto: Prisma.UserCreateInput) {
+    const isValidEmail = await this.userService.findOneByEmail(
+      signInWithGoogleDto.email,
+    );
+
+    if (isValidEmail && !isValidEmail.googleId) {
+      throw new BadRequestException('Email already in use');
+    }
+
+    const user = await this.googleAuthService.signIn(signInWithGoogleDto);
+
+    const jwtPayload = {
+      userId: user.id,
+      role: user.role,
+    };
+
+    const accessToken = this.createAccessToken(jwtPayload);
+    const refreshToken = this.createRefreshToken(jwtPayload);
+
+    await this.cacheManager.set(
+      `refreshToken_${user.id}`,
+      refreshToken,
+      1209600, // 14 days in seconds
+    );
+
+    return { accessToken, refreshToken };
+  }
+
   createAccessToken(payload: JwtPayload) {
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET,
-    });
+    const tokenId = uuidv4();
+    return this.jwtService.sign(
+      { ...payload, tokenId },
+      {
+        secret: process.env.JWT_SECRET,
+      },
+    );
   }
 
   createRefreshToken(payload: JwtPayload) {
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET,
-    });
+    const tokenId = uuidv4();
+
+    return this.jwtService.sign(
+      { ...payload, tokenId },
+      {
+        secret: process.env.JWT_SECRET,
+      },
+    );
   }
 
   async validateUser(userId: string): Promise<boolean> {
     const user = await this.userService.findOneById(userId);
 
     return user ? true : false;
-  }
-
-  private authenticateRequest(request: any): Observable<any> {
-    // Implement Passport authentication logic here
-    // This might involve using Passport's authenticate method
-    // and returning the authenticated user object
-    return new Observable((subscriber) => subscriber.next(undefined)); // Placeholder
   }
 
   async refreshToken(refreshToken: string) {
@@ -136,5 +159,18 @@ export class AuthService {
       console.log('Error', error);
       throw new BadRequestException('Invalid refresh token');
     }
+  }
+
+  async logout(userId: string) {
+    await this.cacheManager.del(`refreshToken_${userId}`);
+
+    return { success: true };
+  }
+
+  async deleteUserProfile(userId: string) {
+    await this.userService.remove(userId);
+    await this.cacheManager.del(`refreshToken_${userId}`);
+
+    return { success: true };
   }
 }

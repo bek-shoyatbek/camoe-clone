@@ -11,6 +11,11 @@ export class UsersService {
     private fsService: FsService,
   ) {}
 
+  async create(data: Prisma.UserCreateInput) {
+    const user = await this.prisma.user.create({ data });
+    return user;
+  }
+
   async addProfileContent(
     userId: string,
     content: Prisma.ProfileContentCreateInput,
@@ -55,6 +60,14 @@ export class UsersService {
     return user;
   }
 
+  async findOneByGoogleId(googleId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        googleId,
+      },
+    });
+    return user;
+  }
   async updateProfile(userId: string, updateUserDto: Prisma.UserUpdateInput) {
     const OldUser = await this.findOneById(userId);
     if (!OldUser) throw new NotFoundException(`User not found`);
@@ -71,6 +84,13 @@ export class UsersService {
     });
     delete user.password;
     delete user.createdAt;
+    return user;
+  }
+
+  async remove(userId: string) {
+    const user = await this.findOneById(userId);
+    if (!user) throw new NotFoundException(`User not found`);
+    await this.prisma.user.delete({ where: { id: user.id } });
     return user;
   }
 
